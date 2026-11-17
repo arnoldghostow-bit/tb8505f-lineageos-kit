@@ -50,6 +50,9 @@ $kitRoot = Split-Path -Path $PSScriptRoot -Parent
 Import-Module (Join-Path $PSScriptRoot 'TB8505F.Flash.psm1') -Force -DisableNameChecking
 
 try {
+    if (-not (Install-KitAsset -KitRoot $kitRoot -Target Stock)) {
+        throw 'Комплект не готов к возврату на сток - см. сообщения подготовки выше.'
+    }
     $config = Initialize-Kit -KitRoot $kitRoot -LogName 'restore'
     $host.UI.RawUI.WindowTitle = 'TB-8505F -> Stock'
     Write-KitLog -Message "Возврат на сток: $($config.Stock.Description)" -Level Step

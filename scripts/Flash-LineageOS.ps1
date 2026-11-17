@@ -59,6 +59,10 @@ $kitRoot = Split-Path -Path $PSScriptRoot -Parent
 Import-Module (Join-Path $PSScriptRoot 'TB8505F.Flash.psm1') -Force -DisableNameChecking
 
 try {
+    # Свежая копия из GitHub: сначала докачать fastboot/образы/драйвер.
+    if (-not $PostConfigOnly -and -not (Install-KitAsset -KitRoot $kitRoot -Target LineageOS)) {
+        throw 'Комплект не готов к прошивке - см. сообщения подготовки выше.'
+    }
     $config = Initialize-Kit -KitRoot $kitRoot -LogName 'flash'
     $host.UI.RawUI.WindowTitle = 'TB-8505F -> LineageOS'
     Write-KitLog -Message "Комплект прошивки: $($config.Device.Name) -> $($config.LineageOS.Description)" -Level Step

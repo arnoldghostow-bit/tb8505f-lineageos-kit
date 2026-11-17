@@ -15,6 +15,47 @@ $script:_LogFile = $null
 
 #region Инициализация и лог
 
+function Install-KitAsset {
+    <#
+        Если в комплекте нет fastboot/образов (свежая копия из GitHub) - запускает
+        Get-KitAssets.ps1 отдельным процессом и ждёт его. Возвращает $true, если всё готово.
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateScript({ Test-Path $_ -PathType Container })]
+        [string]$KitRoot,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('LineageOS', 'Stock')]
+        [string]$Target
+    )
+    $config = Get-Content -Path (Join-Path $KitRoot 'config.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+    $required = New-Object System.Collections.Generic.List[string]
+    $required.Add((Join-Path $KitRoot (Join-Path $config.Tools.PlatformTools 'fastboot.exe')))
+    $required.Add((Join-Path $KitRoot $config.Tools.DriverInf))
+    foreach ($item in $config.$Target.Flash) { $required.Add((Join-Path $KitRoot $item.File)) }
+    $missing = @($required | Where-Object { -not (Test-Path $_) })
+
+    $ready = $true
+    if ($missing.Count -gt 0) {
+        Write-Host ''
+        Write-Host "В комплекте не хватает файлов ($($missing.Count)) - запускаю подготовку (Get-KitAssets.ps1)..." -ForegroundColor Cyan
+        $assetsScript = Join-Path $KitRoot 'scripts\Get-KitAssets.ps1'
+        $psExe = Join-Path $PSHOME 'powershell.exe'
+        if (-not (Test-Path $psExe)) { $psExe = Join-Path $PSHOME 'pwsh.exe' }
+        & $psExe -NoProfile -ExecutionPolicy Bypass -File $assetsScript
+        $stillMissing = @($required | Where-Object { -not (Test-Path $_) })
+        if ($stillMissing.Count -gt 0) {
+            Write-Host 'Подготовка не завершена, не хватает:' -ForegroundColor Yellow
+            foreach ($m in $stillMissing) { Write-Host "  - $m" -ForegroundColor Yellow }
+            $ready = $false
+        }
+    }
+    $ready
+}
+
 function Initialize-Kit {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
@@ -604,7 +645,7 @@ set_str() {
 
 #endregion
 
-Export-ModuleMember -Function Initialize-Kit, Write-KitLog, Show-UserAction, Invoke-KitTool,
+Export-ModuleMember -Function Install-KitAsset, Initialize-Kit,Write-KitLog, Show-UserAction, Invoke-KitTool,
 Get-FastbootVar, Get-AdbProp, Test-IsAdministrator, Install-KitDriver, Get-DeviceState,
 Wait-DeviceState, Connect-Device, Assert-DeviceModel, Assert-BatteryLevel, Test-KitImage,
 Enter-Fastboot, Unlock-Bootloader, Lock-Bootloader, Invoke-PartitionFlash, Wait-AndroidBoot,
