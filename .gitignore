@@ -1,0 +1,11 @@
+# Large / third-party binaries: fetched or built by GET_ASSETS.cmd (scripts\Get-KitAssets.ps1)
+tools/
+images/
+stock/
+drivers/
+downloads/
+logs/
+*.img
+*.img.gz
+*.zip
+*.bin

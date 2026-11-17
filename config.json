@@ -1,0 +1,64 @@
+{
+    "Device": {
+        "Name": "Lenovo Tab M8 HD (TB-8505F)",
+        "FastbootProduct": "akita_row_wifi",
+        "AdbBoard": "akita_row_wifi",
+        "MinBatteryPercent": 30
+    },
+    "Tools": {
+        "PlatformTools": "tools\\platform-tools",
+        "DriverInf": "drivers\\mtk_android_winusb\\android_winusb.inf"
+    },
+    "Assets": {
+        "PlatformTools": {
+            "Url": "https://dl.google.com/android/repository/platform-tools_r34.0.5-windows.zip",
+            "Sha256": "3F8320152704377DE150418A3C4C9D07D16D80A6C0D0D8F7289C22C499E33571"
+        },
+        "LineageOSGz": {
+            "Urls": [
+                "https://sourceforge.net/projects/andyyan-gsi/files/lineage-21-pre-qpr2-td/lineage-21.0-20261109-UNOFFICIAL-arm64_bgN-signed.img.gz/download",
+                "https://sourceforge.net/projects/andyyan-gsi/files/lineage-21-pre-qpr2-td/History/lineage-21.0-20261109-UNOFFICIAL-arm64_bgN-signed.img.gz/download"
+            ],
+            "Sha256": "EB45AB0989A1967CD08606A360F189E68F043A4C3542CBA41469498A351853F3"
+        },
+        "StockSourceDirs": [
+            "C:\\ProgramData\\RSA\\Download\\RomFiles\\TB_8505F_S301106_230914_BMP"
+        ],
+        "StockVbmeta": "stock\\vbmeta.img"
+    },
+    "LineageOS": {
+        "Description": "LineageOS 21 (Android 14) GSI by AndyYan, TrebleDroid-based, with GApps",
+        "Flash": [
+            { "Partition": "vbmeta", "File": "images\\vbmeta_disabled.img", "Sha256": "32BE40B40932CA3EB4E7E75BCDEB7F8D180DEB485BDE73B3A90C756D4861D095" },
+            { "Partition": "system", "File": "images\\lineage-21.0-20261109-arm64_bgN-signed.img", "Sha256": "E40EDF65817821940C4F0F29E8119D7B8535391EC265747398E0A1F10CDB0EF4" }
+        ],
+        "Erase": [ "userdata", "metadata", "cache" ],
+        "BootTimeoutSec": 600,
+        "PostConfig": {
+            "Props": {
+                "persist.sys.bt.unsupported.commands": "182",
+                "persist.sys.phh.enable_sf_gl_backpressure": "0"
+            },
+            "TrebleAppPrefs": {
+                "key_misc_bluetooth": "mediatek",
+                "key_misc_disable_sf_gl_backpressure": "true"
+            },
+            "AnimationScale": "0"
+        }
+    },
+    "Stock": {
+        "Description": "Lenovo stock TB-8505F_S301106_230914_BMP (Android 10)",
+        "Flash": [
+            { "Partition": "boot",       "File": "stock\\boot.img",          "Sha256": "404695314AC2483BA37DE0D63B2ED7E388D001CDC6557FB70EBC78D92D96D26E" },
+            { "Partition": "dtbo",       "File": "stock\\dtbo-verified.img", "Sha256": "767DED5376963EAC4452698C2D70710A696ED0D58EA157A510CB5AD4299B3C5A" },
+            { "Partition": "recovery",   "File": "stock\\recovery.img",      "Sha256": "5CAF5A0948C430B3326A0A8607D5865D9AC6B39C6F8782425B4BD897355923C2" },
+            { "Partition": "logo",       "File": "stock\\logo-verified.bin", "Sha256": "9E0F643F697BDF6DCA2D385501ABB807A176ED61BBC22C827CD829FC8E49DE49" },
+            { "Partition": "lenovocust", "File": "stock\\lenovocust.img",    "Sha256": "766AC0F3762461DDABB030C27B561A77DFE8852133D10FE86ADE1D17C3F90968" },
+            { "Partition": "vendor",     "File": "stock\\vendor.img",        "Sha256": "47B5FC7BA5F2A86D35F1A94815B3916EA128D38A6B095C180186D108143C3931" },
+            { "Partition": "system",     "File": "stock\\system.img",        "Sha256": "C37E7395FECF21D01113D28C63531DDE3B5FA18EE29B2C6F1ED77A2A6B916E63" },
+            { "Partition": "vbmeta",     "File": "stock\\vbmeta.img",        "Sha256": "6B480DA7B9B41B6608B605F2FA3A5EFC998246078C6A903A9474714827F25AD0" }
+        ],
+        "Erase": [ "userdata", "metadata", "cache" ],
+        "BootTimeoutSec": 600
+    }
+}
