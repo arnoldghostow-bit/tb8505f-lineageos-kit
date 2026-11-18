@@ -44,6 +44,16 @@
                 "key_misc_disable_sf_gl_backpressure": "true"
             },
             "AnimationScale": "0"
+        },
+        "Optimize": {
+            "DisablePackages": [ "com.google.android.apps.restore", "com.android.DeviceAsWebcam", "com.android.stk" ],
+            "BenchmarkApps": [
+                { "Name": "Settings",   "Package": "com.android.settings", "Activity": "com.android.settings/.Settings" },
+                { "Name": "Chrome",     "Package": "com.android.chrome",   "Activity": "com.android.chrome/com.google.android.apps.chrome.Main" },
+                { "Name": "Play Store", "Package": "com.android.vending",  "Activity": "com.android.vending/.AssetBrowserActivity" }
+            ],
+            "MaxColdStartMs": 5000,
+            "MaxJankPercent": 10
         }
     },
     "Stock": {
