@@ -26,6 +26,16 @@
 
 Образы и прошивки в репозитории не хранятся (размер и лицензии) — только скрипты.
 
+### Откуда что скачивается
+
+| Что | Источник |
+|---|---|
+| LineageOS 21 GSI (`lineage-21.0-20261109-UNOFFICIAL-arm64_bgN-signed.img.gz`, ~1,4 ГБ) | SourceForge, проект AndyYan: https://sourceforge.net/projects/andyyan-gsi/files/lineage-21-pre-qpr2-td/ (запасная ссылка — подпапка `History/`) |
+| adb/fastboot 34.0.5 | Google: https://dl.google.com/android/repository/platform-tools_r34.0.5-windows.zip |
+| Стоковая прошивка и драйвер MediaTek | Локально, из папки Lenovo RSA (`C:\ProgramData\RSA\Download\RomFiles\…`) и хранилища драйверов Windows |
+
+Все ссылки и контрольные суммы SHA256 — в `config.json` (`Assets`).
+
 ## Быстрый старт
 
 1. Подготовьте комплект (см. выше) на ПК с Windows 10/11.
@@ -130,6 +140,7 @@ TB8505F_LineageOS_Kit\
 
 | 2026-11-18 | Копия из GitHub (ZIP) в папке с пробелом и скобками `...kit-main (1)` | ❌ adb/fastboot вызывались через `cmd /c`, путь ломался — планшет «не виден». Исправлено (прямой запуск процессов), проверено в `path test (1)\kit-main (1)`: подключение, модель, fastboot, пост-настройка ✅ |
 | 2026-11-18 | Свежий клон без образов → `START_FLASH_LINEAGEOS` | ✅ подготовка запускается сама: скачаны fastboot и LineageOS, собран vbmeta, все SHA256 сошлись |
+| 2026-11-18 | **Полный онлайн-прогон у пользователя:** ZIP с GitHub → `START_FLASH_LINEAGEOS` (скачивание LineageOS ~8 мин → прошивка → пост-настройка) | ✅ LineageOS установлена, всё работает |
 
 Не проверено скриптом: разблокировка загрузчика с нуля (делалась вручную той же командой
 `fastboot flashing unlock`), `RESTORE_STOCK_AND_LOCK` (блокировка загрузчика),
