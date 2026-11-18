@@ -16,7 +16,7 @@
       3. Компилирует обновлённые приложения (cmd package bg-dexopt-job) -
          то, что Android иначе сделал бы сам ночью на зарядке.
       4. Тест на тормоза: время холодного/тёплого запуска приложений, плавность
-         прокрутки (доля "рваных" кадров), количество ANR с момента включения.
+         прокрутки (доля "рваных" кадров), ANR, задержка и сигнал Wi-Fi.
 
 .PARAMETER SkipDexopt
     Не компилировать приложения (только проверка, отключение служб и тест).
@@ -112,6 +112,17 @@ function Set-PackageState {
     }
 }
 
+function Measure-WifiLatency {
+    <# 50 пингов до шлюза Wi-Fi: среднее, максимум, число медленных (>30 мс). #>
+    $r = Invoke-AdbShell -Command 'gw=$(ip route get 1.1.1.1 | grep -oE "via [0-9.]+" | cut -d" " -f2); [ -z "$gw" ] && exit 0; ping -c 50 -i 0.2 -W 2 $gw > /data/local/tmp/tb_ping.txt; tail -1 /data/local/tmp/tb_ping.txt; echo slow=$(grep -v DUP /data/local/tmp/tb_ping.txt | grep -cE "time=([3-9][0-9]|[0-9]{3})"); rm -f /data/local/tmp/tb_ping.txt'
+    if ($r -match '= [\d.]+/([\d.]+)/([\d.]+)/' ) {
+        $avg = $Matches[1]; $max = $Matches[2]
+        $slow = if ($r -match 'slow=(\d+)') { $Matches[1] } else { '?' }
+        "среднее $avg мс, максимум $max мс, медленных (>30 мс) $slow из 50"
+    }
+    else { 'нет данных (Wi-Fi не подключён?)' }
+}
+
 function Measure-AppLaunch {
     <# Холодный и тёплый запуск приложения, мс (TotalTime из am start -W). #>
     param([Parameter(Mandatory = $true)][pscustomobject]$App)
@@ -171,6 +182,12 @@ function Invoke-LagBenchmark {
     $newAnr = $anrAfter - $anrBefore
     if ($newAnr -gt 0) { $good = $false }
     Write-KitLog -Message "  ANR во время теста: $newAnr (всего с момента включения: $anrAfter)" -Level $(if ($newAnr -gt 0) { 'Warn' } else { 'Ok' })
+    Write-KitLog -Message "  Задержка Wi-Fi до роутера: $(Measure-WifiLatency)"
+    $rssi = Invoke-AdbShell -Command 'dumpsys wifi | grep -m1 "^mWifiInfo"'
+    if ($rssi -match 'RSSI: (-?\d+), Link speed: (\d+)') {
+        $weak = [int]$Matches[1] -lt -75
+        Write-KitLog -Message ('  Сигнал Wi-Fi: {0} dBm, скорость связи {1} Мбит/с{2}' -f $Matches[1], $Matches[2], $(if ($weak) { ' - СЛАБЫЙ (нужно лучше -65 dBm): страницы и видео будут грузиться медленно' } else { '' })) -Level $(if ($weak) { 'Warn' } else { 'Ok' })
+    }
     $mem = Invoke-AdbShell -Command 'grep MemAvailable /proc/meminfo'
     if ($mem -match '(\d+)\s*kB') { Write-KitLog -Message ('  Свободно памяти: {0} МБ' -f [math]::Round([int]$Matches[1] / 1024)) }
     $good
