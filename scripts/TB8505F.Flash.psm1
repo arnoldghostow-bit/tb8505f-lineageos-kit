@@ -84,6 +84,7 @@ function Initialize-Kit {
     if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
     $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
     $script:_LogFile = Join-Path $logDir "$LogName`_$stamp.log"
+    Start-AdbServer
 
     $config
 }
@@ -142,16 +143,55 @@ function Invoke-KitTool {
         [Parameter(Mandatory = $true)]
         [string[]]$Arguments
     )
+    <# Прямой запуск через System.Diagnostics.Process, без cmd.exe: путь к комплекту может
+       содержать пробелы и скобки ("...kit-main (1)\"), которые ломают разбор в cmd /c.
+       stdout и stderr читаются асинхронно (fastboot пишет всё в stderr). #>
     $exe = if ($Tool -eq 'adb') { $script:_Adb } else { $script:_Fastboot }
-    $quotedArgs = ($Arguments | ForEach-Object { if ($_ -match '\s') { '"{0}"' -f $_ } else { $_ } }) -join ' '
-    $cmdLine = '""{0}" {1} 2>&1"' -f $exe, $quotedArgs
-    $output = & cmd.exe /s /c $cmdLine
+    $quotedArgs = ($Arguments | ForEach-Object {
+            if ($_ -match '[\s"]') { '"{0}"' -f ($_ -replace '"', '\"') } else { $_ }
+        }) -join ' '
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $exe
+    $psi.Arguments = $quotedArgs
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $proc = [System.Diagnostics.Process]::Start($psi)
+    $stdoutTask = $proc.StandardOutput.ReadToEndAsync()
+    $stderrTask = $proc.StandardError.ReadToEndAsync()
+    # 15 минут - с запасом на "fastboot flashing unlock", который ждёт кнопку на планшете.
+    if (-not $proc.WaitForExit(900000)) {
+        $proc.Kill()
+        throw "$Tool $quotedArgs не завершился за 15 минут."
+    }
+    # Если adb запустил фоновый сервер, тот может держать унаследованный канал вывода -
+    # поэтому ждём чтения ограниченное время, а не бесконечно.
+    $text = ''
+    foreach ($task in $stdoutTask, $stderrTask) {
+        if ($task.Wait(5000)) { $text += $task.Result }
+    }
     $result = [pscustomobject]@{
-        ExitCode = $LASTEXITCODE
-        Output   = (@($output) | ForEach-Object { "$_".TrimEnd() }) -join "`n"
+        ExitCode = $proc.ExitCode
+        Output   = (($text -split "`r?`n") | ForEach-Object { $_.TrimEnd() } | Where-Object { $_ -ne '' }) -join "`n"
     }
     Write-Verbose "$Tool $quotedArgs -> $($result.ExitCode): $($result.Output)"
     $result
+}
+
+function Start-AdbServer {
+    <# Запускает сервер adb заранее, без перехвата вывода, чтобы фоновый процесс сервера
+       не унаследовал каналы Invoke-KitTool. #>
+    [CmdletBinding()]
+    [OutputType([void])]
+    param()
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $script:_Adb
+    $psi.Arguments = 'start-server'
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $proc = [System.Diagnostics.Process]::Start($psi)
+    [void]$proc.WaitForExit(30000)
 }
 
 function Invoke-KitToolLive {
@@ -645,7 +685,7 @@ set_str() {
 
 #endregion
 
-Export-ModuleMember -Function Install-KitAsset, Initialize-Kit,Write-KitLog, Show-UserAction, Invoke-KitTool,
+Export-ModuleMember -Function Install-KitAsset, Start-AdbServer, Initialize-Kit, Write-KitLog, Show-UserAction, Invoke-KitTool,
 Get-FastbootVar, Get-AdbProp, Test-IsAdministrator, Install-KitDriver, Get-DeviceState,
 Wait-DeviceState, Connect-Device, Assert-DeviceModel, Assert-BatteryLevel, Test-KitImage,
 Enter-Fastboot, Unlock-Bootloader, Lock-Bootloader, Invoke-PartitionFlash, Wait-AndroidBoot,
