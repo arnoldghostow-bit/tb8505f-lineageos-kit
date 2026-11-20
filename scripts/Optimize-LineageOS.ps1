@@ -286,11 +286,14 @@ try {
             $sw = [System.Diagnostics.Stopwatch]::StartNew()
             $r = Invoke-AdbShell -Command 'cmd package bg-dexopt-job'
             $sw.Stop()
-            if ($r -match 'cancel') {
-                Write-KitLog -Message 'Компиляция была прервана - запустите скрипт ещё раз позже.' -Level Warn
-            }
-            elseif ($r -match 'finished') {
+            # Android всегда печатает подсказку "To cancel it, run ... --cancel" - по слову "cancel"
+            # прерывание не определять. Успех = "Job finished"; если всё уже скомпилировано
+            # (система сделала это сама), задача заканчивается за секунды - это нормально.
+            if ($r -match 'Job finished') {
                 Write-KitLog -Message ('Компиляция завершена за {0:N0} с.' -f $sw.Elapsed.TotalSeconds) -Level Ok
+            }
+            elseif ($r -match 'cancelled') {
+                Write-KitLog -Message 'Компиляция была прервана - запустите скрипт ещё раз позже.' -Level Warn
             }
             else {
                 Write-KitLog -Message "Компиляция: $r" -Level Warn
