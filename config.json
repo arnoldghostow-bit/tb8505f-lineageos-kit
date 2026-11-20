@@ -52,6 +52,18 @@
                 { "Name": "Chrome",     "Package": "com.android.chrome",   "Activity": "com.android.chrome/com.google.android.apps.chrome.Main" },
                 { "Name": "Play Store", "Package": "com.android.vending",  "Activity": "com.android.vending/.AssetBrowserActivity" }
             ],
+            "CompileReportApps": [
+                { "Name": "Chrome",              "Package": "com.android.chrome" },
+                { "Name": "Google Play",         "Package": "com.android.vending" },
+                { "Name": "Сервисы Google (GMS)", "Package": "com.google.android.gms" },
+                { "Name": "Приложение Google",   "Package": "com.google.android.googlequicksearchbox" },
+                { "Name": "WebView (Google)",    "Package": "com.google.android.webview" },
+                { "Name": "WebView",             "Package": "com.android.webview" },
+                { "Name": "YouTube",             "Package": "com.google.android.youtube" },
+                { "Name": "Gmail",               "Package": "com.google.android.gm" },
+                { "Name": "Настройки",           "Package": "com.android.settings" },
+                { "Name": "Рабочий стол",        "Package": "com.android.launcher3" }
+            ],
             "MaxColdStartMs": 5000,
             "MaxJankPercent": 10
         }

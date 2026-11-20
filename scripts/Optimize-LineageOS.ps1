@@ -112,6 +112,39 @@ function Set-PackageState {
     }
 }
 
+function Get-CompileStatus {
+    <#
+        Статус компиляции основного кода приложений (pm art dump): хэш-таблица пакет -> статус.
+        speed / speed-profile = скомпилировано; verify / quicken / run-from-apk = нет.
+    #>
+    param([Parameter(Mandatory = $true)][object[]]$Apps)
+    $installed = Invoke-AdbShell -Command 'pm list packages'
+    $result = [ordered]@{}
+    foreach ($app in $Apps) {
+        if ($installed -notmatch "(?m)^package:$([regex]::Escape($app.Package))\s*$") { continue }
+        $dump = Invoke-AdbShell -Command "pm art dump $($app.Package)"
+        $result[$app.Package] = if ($dump -match '\[status=([a-z-]+)\]') { $Matches[1] } else { '?' }
+    }
+    $result
+}
+
+function Write-CompileReport {
+    <# Таблица "было -> стало" по ключевым приложениям. #>
+    param(
+        [Parameter(Mandatory = $true)][object[]]$Apps,
+        [Parameter(Mandatory = $true)][System.Collections.IDictionary]$Before,
+        [Parameter(Mandatory = $true)][System.Collections.IDictionary]$After
+    )
+    Write-KitLog -Message 'Статус компиляции (speed / speed-profile = скомпилировано):'
+    foreach ($app in $Apps) {
+        if (-not $After.Contains($app.Package)) { continue }
+        $b = if ($Before.Contains($app.Package)) { $Before[$app.Package] } else { 'нет' }
+        $a = $After[$app.Package]
+        $ok = $a -match '^speed'
+        Write-KitLog -Message ('  {0,-22} {1,-14} -> {2}' -f $app.Name, $b, $a) -Level $(if ($ok) { 'Ok' } else { 'Warn' })
+    }
+}
+
 function Measure-WifiLatency {
     <# 50 пингов до шлюза Wi-Fi: среднее, максимум, число медленных (>30 мс). #>
     $r = Invoke-AdbShell -Command 'gw=$(ip route get 1.1.1.1 | grep -oE "via [0-9.]+" | cut -d" " -f2); [ -z "$gw" ] && exit 0; ping -c 50 -i 0.2 -W 2 $gw > /data/local/tmp/tb_ping.txt; tail -1 /data/local/tmp/tb_ping.txt; echo slow=$(grep -v DUP /data/local/tmp/tb_ping.txt | grep -cE "time=([3-9][0-9]|[0-9]{3})"); rm -f /data/local/tmp/tb_ping.txt'
@@ -248,7 +281,8 @@ try {
             Write-KitLog -Message 'Компиляция пропущена (-SkipDexopt).' -Level Warn
         }
         else {
-            Write-KitLog -Message 'Компиляция обновлённых приложений (2-10 мин, планшет может подтормаживать)...'
+            $statusBefore = Get-CompileStatus -Apps $opt.CompileReportApps
+            Write-KitLog -Message 'Компиляция приложений: стандартная задача Android bg-dexopt-job (2-10 мин, планшет может подтормаживать)...'
             $sw = [System.Diagnostics.Stopwatch]::StartNew()
             $r = Invoke-AdbShell -Command 'cmd package bg-dexopt-job'
             $sw.Stop()
@@ -261,6 +295,8 @@ try {
             else {
                 Write-KitLog -Message "Компиляция: $r" -Level Warn
             }
+            $statusAfter = Get-CompileStatus -Apps $opt.CompileReportApps
+            Write-CompileReport -Apps $opt.CompileReportApps -Before $statusBefore -After $statusAfter
         }
     }
 
