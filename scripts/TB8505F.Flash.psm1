@@ -480,6 +480,46 @@ function Enter-Fastboot {
     Write-KitLog -Message 'Планшет в режиме fastboot.' -Level Ok
 }
 
+function Get-OemUnlockHelpLines {
+    @(
+        'На планшете выключена "Заводская разблокировка" (OEM unlocking) - без неё загрузчик',
+        'отказывает в разблокировке ("Unlock operation is not allowed"). Включите её:',
+        '  1. Подключите планшет к Wi-Fi С ИНТЕРНЕТОМ (без интернета пункт серый).',
+        '  2. Настройки > О планшете > 7 раз нажмите "Номер сборки" (режим разработчика).',
+        '  3. Настройки > Система > Дополнительно > Для разработчиков >',
+        '     "Заводская разблокировка" (OEM unlocking) = ВКЛ, подтвердите.',
+        '     Если пункт серый - подождите 1-2 мин с интернетом или перезагрузите планшет.'
+    )
+}
+
+function Assert-OemUnlockAllowed {
+    <#
+        В Android (adb): если загрузчик заблокирован, проверяет, что в настройках разработчика
+        включена "Заводская разблокировка". Если нет - показывает инструкцию и ждёт (до 15 мин),
+        пока пользователь её включит.
+    #>
+    [CmdletBinding()]
+    [OutputType([void])]
+    param()
+    if ((Get-AdbProp -Name 'ro.boot.flash.locked') -eq '0') { return }   # уже разблокирован
+    if ((Get-AdbProp -Name 'sys.oem_unlock_allowed') -eq '1') {
+        Write-KitLog -Message 'Заводская разблокировка (OEM unlocking) включена.' -Level Ok
+        return
+    }
+    Show-UserAction -Lines (Get-OemUnlockHelpLines)
+    Write-KitLog -Message 'Жду, пока "Заводская разблокировка" будет включена (до 15 мин)...'
+    $deadline = (Get-Date).AddMinutes(15)
+    while ((Get-Date) -lt $deadline) {
+        Start-Sleep -Seconds 5
+        if ((Get-DeviceState) -ne 'Adb') { continue }
+        if ((Get-AdbProp -Name 'sys.oem_unlock_allowed') -eq '1') {
+            Write-KitLog -Message 'Заводская разблокировка (OEM unlocking) включена.' -Level Ok
+            return
+        }
+    }
+    throw 'Заводская разблокировка (OEM unlocking) так и не включена - включите её и запустите скрипт снова.'
+}
+
 function Unlock-Bootloader {
     <# Разблокирует загрузчик, если он ещё заблокирован. Требует нажатия Громкость ВВЕРХ. #>
     [CmdletBinding()]
@@ -490,6 +530,13 @@ function Unlock-Bootloader {
         Write-KitLog -Message 'Загрузчик уже разблокирован.' -Level Ok
         return
     }
+    # Если планшет пришёл сразу в fastboot, проверку в Android пропустили - спросим загрузчик.
+    $ability = (Invoke-KitTool -Tool fastboot -Arguments @('flashing', 'get_unlock_ability')).Output
+    if ($ability -match 'get_unlock_ability:\s*0') {
+        Invoke-KitTool -Tool fastboot -Arguments @('reboot') | Out-Null
+        Show-UserAction -Lines ((Get-OemUnlockHelpLines) + 'Планшет перезагружается в Android. После включения запустите скрипт снова.')
+        throw 'Заводская разблокировка (OEM unlocking) выключена.'
+    }
     Show-UserAction -Lines @(
         'СЕЙЧАС на экране планшета появится предупреждение о разблокировке загрузчика.',
         'Нажмите кнопку ГРОМКОСТЬ ВВЕРХ, чтобы подтвердить.',
@@ -497,6 +544,11 @@ function Unlock-Bootloader {
     )
     $r = Invoke-KitTool -Tool fastboot -Arguments @('flashing', 'unlock')
     Write-KitLog -Message $r.Output
+    if ($r.Output -match 'not allowed') {
+        Invoke-KitTool -Tool fastboot -Arguments @('reboot') | Out-Null
+        Show-UserAction -Lines ((Get-OemUnlockHelpLines) + 'Планшет перезагружается в Android. После включения запустите скрипт снова.')
+        throw 'Загрузчик отказал: "Заводская разблокировка" (OEM unlocking) выключена.'
+    }
     Start-Sleep -Seconds 3
     $unlocked = Get-FastbootVar -Name 'unlocked'
     if ($unlocked -ne 'yes') {
@@ -688,5 +740,5 @@ set_str() {
 Export-ModuleMember -Function Install-KitAsset, Start-AdbServer, Initialize-Kit, Write-KitLog, Show-UserAction, Invoke-KitTool,
 Get-FastbootVar, Get-AdbProp, Test-IsAdministrator, Install-KitDriver, Get-DeviceState,
 Wait-DeviceState, Connect-Device, Assert-DeviceModel, Assert-BatteryLevel, Test-KitImage,
-Enter-Fastboot, Unlock-Bootloader, Lock-Bootloader, Invoke-PartitionFlash, Wait-AndroidBoot,
+Enter-Fastboot, Assert-OemUnlockAllowed, Unlock-Bootloader, Lock-Bootloader, Invoke-PartitionFlash, Wait-AndroidBoot,
 Set-GsiPostConfig

@@ -91,6 +91,7 @@ try {
     Assert-DeviceModel -State $state -DeviceConfig $config.Device
     if ($state -eq 'Adb') {
         Assert-BatteryLevel -MinPercent $config.Device.MinBatteryPercent
+        Assert-OemUnlockAllowed
     }
     else {
         Write-KitLog -Message 'Планшет уже в fastboot - заряд проверить нельзя, убедитесь что он > 30%.' -Level Warn
