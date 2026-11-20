@@ -58,6 +58,22 @@ $ErrorActionPreference = 'Stop'
 $kitRoot = Split-Path -Path $PSScriptRoot -Parent
 Import-Module (Join-Path $PSScriptRoot 'TB8505F.Flash.psm1') -Force -DisableNameChecking
 
+function Show-OptimizeReminder {
+    <# Финальное напоминание в рамке: после мастера и обновлений Play запустить оптимизацию. #>
+    Show-KitAlert -Lines @(
+        'СЛЕДУЮЩИЙ ШАГ - ОБЯЗАТЕЛЬНО: ЗАПУСТИТЕ OPTIMIZE_LINEAGEOS.cmd',
+        '',
+        'Когда: через 20-40 мин после входа в Google-аккаунт, когда Google Play',
+        '       закончит обновлять приложения (значок загрузки исчез).',
+        'Зачем: без этого появляются окна "Приложение не отвечает" (Chrome, Play) -',
+        '       обновлённые приложения ещё не скомпилированы под планшет.',
+        'Как:   планшет по USB с отладкой -> двойной клик OPTIMIZE_LINEAGEOS.cmd',
+        '       (данные не стираются, без перезагрузки, ~3-5 мин, в конце тест скорости).',
+        '',
+        'NEXT STEP: after setup + Play Store updates, run OPTIMIZE_LINEAGEOS.cmd'
+    )
+}
+
 try {
     # Свежая копия из GitHub: сначала докачать fastboot/образы/драйвер.
     if (-not $PostConfigOnly -and -not (Install-KitAsset -KitRoot $kitRoot -Target LineageOS)) {
@@ -141,6 +157,7 @@ try {
         'ГОТОВО. LineageOS установлена.',
         'Пройдите мастер настройки на планшете (на экране бэкапов - "Don''t restore").'
     )
+    Show-OptimizeReminder
 }
 catch {
     Write-KitLog -Message "ОШИБКА: $($_.Exception.Message)" -Level Error
