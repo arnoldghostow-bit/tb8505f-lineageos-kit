@@ -168,7 +168,12 @@ function Invoke-LagBenchmark {
     Show-UserAction -Lines @('Идёт тест: скрипт сам открывает приложения и листает Настройки.', 'Не трогайте планшет ~1 минуту.')
     $anrBefore = Get-AnrCount
     $good = $true
+    $installed = Invoke-AdbShell -Command 'pm list packages'
     foreach ($app in $Optimize.BenchmarkApps) {
+        if ($installed -notmatch "(?m)^package:$([regex]::Escape($app.Package))\s*$") {
+            Write-KitLog -Message ('  Запуск {0,-12} не установлен - пропуск (поставится из Play позже)' -f $app.Name)
+            continue
+        }
         $m = Measure-AppLaunch -App $app
         $slow = ($null -eq $m.ColdMs) -or ($m.ColdMs -gt $Optimize.MaxColdStartMs)
         if ($slow) { $good = $false }
@@ -210,6 +215,22 @@ try {
         exit 0
     }
 
+    # Мастер настройки ещё не пройден: компиляция всего (dex2oat) конкурирует с ним за CPU/диск,
+    # и мастер надолго зависает на "Проверка..." - запускать оптимизацию нужно ПОСЛЕ мастера.
+    $top = Invoke-AdbShell -Command 'dumpsys activity activities | grep -m1 topResumedActivity'
+    if ($top -match 'setupwizard|SetupWizard|provision') {
+        Show-KitAlert -Lines @(
+            'СНАЧАЛА ЗАВЕРШИТЕ МАСТЕР НАСТРОЙКИ НА ПЛАНШЕТЕ!',
+            '',
+            'Оптимизация во время мастера тормозит его ("Проверка..." висит долго).',
+            'Пройдите мастер до конца, подождите 20-40 мин, пока Google Play обновит',
+            'приложения, затем запустите OPTIMIZE_LINEAGEOS.cmd снова.',
+            '',
+            'FINISH THE SETUP WIZARD FIRST, then run OPTIMIZE_LINEAGEOS.cmd again.'
+        )
+        exit 2
+    }
+
     if (-not $BenchmarkOnly) {
         Write-KitLog -Message '2/4 Проверка исправлений пост-настройки' -Level Step
         if (-not (Test-PostConfig -PostConfig $config.LineageOS.PostConfig)) {
@@ -227,7 +248,10 @@ try {
             $sw = [System.Diagnostics.Stopwatch]::StartNew()
             $r = Invoke-AdbShell -Command 'cmd package bg-dexopt-job'
             $sw.Stop()
-            if ($r -match 'finished') {
+            if ($r -match 'cancel') {
+                Write-KitLog -Message 'Компиляция была прервана - запустите скрипт ещё раз позже.' -Level Warn
+            }
+            elseif ($r -match 'finished') {
                 Write-KitLog -Message ('Компиляция завершена за {0:N0} с.' -f $sw.Elapsed.TotalSeconds) -Level Ok
             }
             else {
