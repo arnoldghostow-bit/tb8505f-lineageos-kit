@@ -217,8 +217,12 @@ try {
 
     # Мастер настройки ещё не пройден: компиляция всего (dex2oat) конкурирует с ним за CPU/диск,
     # и мастер надолго зависает на "Проверка..." - запускать оптимизацию нужно ПОСЛЕ мастера.
-    $top = Invoke-AdbShell -Command 'dumpsys activity activities | grep -m1 topResumedActivity'
-    if ($top -match 'setupwizard|SetupWizard|provision') {
+    # Проверяем ВСЕ задачи, а не только окно на экране: мастер Google живёт в отдельной задаче
+    # и может быть на заднем плане (сверху - рабочий стол), но всё ещё не завершён.
+    $wiz = Invoke-AdbShell -Command 'dumpsys activity activities | grep -cE "u0 (com.google.android.setupwizard|org.lineageos.setupwizard|com.android.provision)/"'
+    $wizCount = 0
+    [void][int]::TryParse((($wiz -split "`n")[0]).Trim(), [ref]$wizCount)
+    if ($wizCount -gt 0) {
         Show-KitAlert -Lines @(
             'СНАЧАЛА ЗАВЕРШИТЕ МАСТЕР НАСТРОЙКИ НА ПЛАНШЕТЕ!',
             '',
