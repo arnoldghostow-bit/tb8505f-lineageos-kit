@@ -741,7 +741,10 @@ set_str() {
         }
 
         $localSh = Join-Path $env:TEMP ("tb8505f_post_{0}.sh" -f (New-Guid))
-        [System.IO.File]::WriteAllText($localSh, (($sh -join "`n") + "`n"), (New-Object System.Text.UTF8Encoding $false))
+        # Только LF: если .psm1 сохранён с CRLF, here-string несёт `r, и sh на планшете падает
+        # ("syntax error: unexpected '}'").
+        $shText = (($sh -join "`n") + "`n") -replace "`r", ''
+        [System.IO.File]::WriteAllText($localSh, $shText, (New-Object System.Text.UTF8Encoding $false))
         try {
             Invoke-KitTool -Tool adb -Arguments @('push', $localSh, '/data/local/tmp/tb8505f_post.sh') | Out-Null
             $r = Invoke-KitTool -Tool adb -Arguments @('shell', 'sh', '/data/local/tmp/tb8505f_post.sh')
