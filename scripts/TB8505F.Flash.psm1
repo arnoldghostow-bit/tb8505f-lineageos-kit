@@ -127,6 +127,43 @@ function Show-UserAction {
     foreach ($l in $Lines) { Write-KitLog -Message "ДЕЙСТВИЕ ПОЛЬЗОВАТЕЛЯ: $l" -Level Action 6>$null }
 }
 
+function Show-KitAlert {
+    <# Красная рамка с важным предупреждением (на английском - видно сразу, без перевода). #>
+    [CmdletBinding()]
+    [OutputType([void])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string[]]$Lines
+    )
+    $width = [Math]::Max(70, ($Lines | Measure-Object -Property Length -Maximum).Maximum + 4)
+    $bar = '!' * $width
+    Write-Host ''
+    Write-Host $bar -ForegroundColor Red
+    foreach ($l in $Lines) { Write-Host ('  ' + $l).PadRight($width) -ForegroundColor White -BackgroundColor DarkRed }
+    Write-Host $bar -ForegroundColor Red
+    Write-Host ''
+    foreach ($l in $Lines) { Write-KitLog -Message "ALERT: $l" -Level Warn 6>$null }
+}
+
+function Show-OemUnlockAlert {
+    <# Напоминание: перед разблокировкой загрузчика явно включить OEM unlocking. #>
+    [CmdletBinding()]
+    [OutputType([void])]
+    param()
+    Show-KitAlert -Lines @(
+        'IMPORTANT: ENABLE "OEM UNLOCKING" ON THE TABLET BEFORE FLASHING!',
+        '',
+        'Without it the bootloader refuses: "Unlock operation is not allowed".',
+        '  1. Connect the tablet to Wi-Fi WITH INTERNET (otherwise the switch is greyed out).',
+        '  2. Settings > About tablet > tap "Build number" 7 times (Developer mode).',
+        '  3. Settings > System > Advanced > Developer options >',
+        '     "OEM unlocking" = ON (confirm). Also "USB debugging" = ON.',
+        '',
+        'RU: Настройки > Для разработчиков > "Заводская разблокировка" = ВКЛ.'
+    )
+}
+
 #endregion
 
 #region Вызов adb / fastboot
@@ -480,18 +517,6 @@ function Enter-Fastboot {
     Write-KitLog -Message 'Планшет в режиме fastboot.' -Level Ok
 }
 
-function Get-OemUnlockHelpLines {
-    @(
-        'На планшете выключена "Заводская разблокировка" (OEM unlocking) - без неё загрузчик',
-        'отказывает в разблокировке ("Unlock operation is not allowed"). Включите её:',
-        '  1. Подключите планшет к Wi-Fi С ИНТЕРНЕТОМ (без интернета пункт серый).',
-        '  2. Настройки > О планшете > 7 раз нажмите "Номер сборки" (режим разработчика).',
-        '  3. Настройки > Система > Дополнительно > Для разработчиков >',
-        '     "Заводская разблокировка" (OEM unlocking) = ВКЛ, подтвердите.',
-        '     Если пункт серый - подождите 1-2 мин с интернетом или перезагрузите планшет.'
-    )
-}
-
 function Assert-OemUnlockAllowed {
     <#
         В Android (adb): если загрузчик заблокирован, проверяет, что в настройках разработчика
@@ -506,8 +531,8 @@ function Assert-OemUnlockAllowed {
         Write-KitLog -Message 'Заводская разблокировка (OEM unlocking) включена.' -Level Ok
         return
     }
-    Show-UserAction -Lines (Get-OemUnlockHelpLines)
-    Write-KitLog -Message 'Жду, пока "Заводская разблокировка" будет включена (до 15 мин)...'
+    Show-OemUnlockAlert
+    Write-KitLog -Message 'Жду, пока "Заводская разблокировка" (OEM unlocking) будет включена (до 15 мин)...'
     $deadline = (Get-Date).AddMinutes(15)
     while ((Get-Date) -lt $deadline) {
         Start-Sleep -Seconds 5
@@ -534,7 +559,8 @@ function Unlock-Bootloader {
     $ability = (Invoke-KitTool -Tool fastboot -Arguments @('flashing', 'get_unlock_ability')).Output
     if ($ability -match 'get_unlock_ability:\s*0') {
         Invoke-KitTool -Tool fastboot -Arguments @('reboot') | Out-Null
-        Show-UserAction -Lines ((Get-OemUnlockHelpLines) + 'Планшет перезагружается в Android. После включения запустите скрипт снова.')
+        Show-OemUnlockAlert
+        Show-UserAction -Lines @('Планшет перезагружается в Android. Включите OEM unlocking и запустите скрипт снова.')
         throw 'Заводская разблокировка (OEM unlocking) выключена.'
     }
     Show-UserAction -Lines @(
@@ -546,7 +572,8 @@ function Unlock-Bootloader {
     Write-KitLog -Message $r.Output
     if ($r.Output -match 'not allowed') {
         Invoke-KitTool -Tool fastboot -Arguments @('reboot') | Out-Null
-        Show-UserAction -Lines ((Get-OemUnlockHelpLines) + 'Планшет перезагружается в Android. После включения запустите скрипт снова.')
+        Show-OemUnlockAlert
+        Show-UserAction -Lines @('Планшет перезагружается в Android. Включите OEM unlocking и запустите скрипт снова.')
         throw 'Загрузчик отказал: "Заводская разблокировка" (OEM unlocking) выключена.'
     }
     Start-Sleep -Seconds 3
@@ -740,5 +767,5 @@ set_str() {
 Export-ModuleMember -Function Install-KitAsset, Start-AdbServer, Initialize-Kit, Write-KitLog, Show-UserAction, Invoke-KitTool,
 Get-FastbootVar, Get-AdbProp, Test-IsAdministrator, Install-KitDriver, Get-DeviceState,
 Wait-DeviceState, Connect-Device, Assert-DeviceModel, Assert-BatteryLevel, Test-KitImage,
-Enter-Fastboot, Assert-OemUnlockAllowed, Unlock-Bootloader, Lock-Bootloader, Invoke-PartitionFlash, Wait-AndroidBoot,
+Enter-Fastboot, Show-KitAlert, Show-OemUnlockAlert, Assert-OemUnlockAllowed, Unlock-Bootloader, Lock-Bootloader, Invoke-PartitionFlash, Wait-AndroidBoot,
 Set-GsiPostConfig

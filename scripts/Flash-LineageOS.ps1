@@ -87,6 +87,8 @@ try {
     Test-KitImage -FlashList $config.LineageOS.Flash -SkipHash:$SkipHashCheck
 
     Write-KitLog -Message '3/7 Подключение планшета' -Level Step
+    # Напоминание всегда, на всякий случай: без OEM unlocking разблокировка загрузчика не пройдёт.
+    Show-OemUnlockAlert
     $state = Connect-Device
     Assert-DeviceModel -State $state -DeviceConfig $config.Device
     if ($state -eq 'Adb') {
